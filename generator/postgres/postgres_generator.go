@@ -3,12 +3,13 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"path"
+	"strings"
+
 	"github.com/go-jet/jet/generator/internal/metadata"
 	"github.com/go-jet/jet/generator/internal/template"
 	"github.com/go-jet/jet/internal/utils"
 	"github.com/go-jet/jet/postgres"
-	"path"
-	"strconv"
 )
 
 // DBConnection contains postgres connection details
@@ -41,9 +42,43 @@ func Generate(destDir string, dbConn DBConnection) (err error) {
 	return
 }
 
+// escapePostgresValue escapes a connection string parameter's value.
+//
+// For details, see section 33.1.1.1 of
+// https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING
+func escapePostgresValue(in string) string {
+	in = strings.ReplaceAll(in, `\`, `\\`)
+	in = strings.ReplaceAll(in, `'`, `\'`)
+	return in
+}
+
 func openConnection(dbConn DBConnection) (*sql.DB, error) {
-	connectionString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s %s",
-		dbConn.Host, strconv.Itoa(dbConn.Port), dbConn.User, dbConn.Password, dbConn.DBName, dbConn.SslMode, dbConn.Params)
+	// By only adding the clauses specified in dbConn (as indicated by non-zero
+	// values), lower level postgresql libraries retain the ability to discover
+	// values set via environment variables, as per the postgresql docs.  For
+	// more information, see session 33.14 of
+	// https://www.postgresql.org/docs/current/libpq-envars.html
+	clauses := []string{}
+	if dbConn.Host != "" {
+		clauses = append(clauses, fmt.Sprintf("host='%s'", dbConn.Host))
+	}
+	if dbConn.Port > 0 {
+		clauses = append(clauses, fmt.Sprintf("port=%d", dbConn.Port))
+	}
+	if dbConn.User != "" {
+		clauses = append(clauses, fmt.Sprintf("user='%s'", dbConn.User))
+	}
+	if dbConn.Password != "" {
+		clauses = append(clauses, fmt.Sprintf("password='%s'", dbConn.Password))
+	}
+	if dbConn.DBName != "" {
+		clauses = append(clauses, fmt.Sprintf("dbname='%s'", dbConn.DBName))
+	}
+	if dbConn.SslMode != "" {
+		clauses = append(clauses, fmt.Sprintf("sslmode='%s'", dbConn.SslMode))
+	}
+	connectionString := fmt.Sprintf("%s %s",
+		strings.Join(clauses, " "), dbConn.Params)
 
 	fmt.Println("Connecting to postgres database: " + connectionString)
 

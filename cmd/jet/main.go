@@ -3,14 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
+
 	mysqlgen "github.com/go-jet/jet/generator/mysql"
 	postgresgen "github.com/go-jet/jet/generator/postgres"
 	"github.com/go-jet/jet/mysql"
 	"github.com/go-jet/jet/postgres"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	"os"
-	"strings"
 )
 
 var (
@@ -75,7 +76,7 @@ Usage:
 
 	flag.Parse()
 
-	if source == "" || host == "" || port == 0 || user == "" || dbName == "" {
+	if source == "" {
 		printErrorAndExit("\nERROR: required flag(s) missing")
 	}
 
